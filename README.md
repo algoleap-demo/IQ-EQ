@@ -38,7 +38,7 @@ flowchart LR
   end
 
   subgraph AI Models
-    LLM((OpenRouter LLMs))
+    LLM((LLMs))
   end
 
   CSV -.-> API
