@@ -18,6 +18,7 @@ from app.core.progress_tracker import tracker
 from app.modules.planning.planning_orchestrator import run_account_planning
 from app.modules.targeting.targeting_orchestrator import run_pipeline as run_targeting_pipeline
 from app.modules.whitespace.whitespace_orchestrator import run_whitespace_pipeline
+from app.modules.pricing.pricing_orchestrator import run_pricing_pipeline
 
 app = FastAPI(title="IQ-EQ Unified Agent Mesh")
 
@@ -36,6 +37,7 @@ class AgentState(TypedDict):
     targeting_results: dict  # Result of POC1
     planning_results: dict  # Result of POC2
     whitespace_results: dict  # Result of POC3
+    pricing_results: dict # Result of POC4
     status: str
     run_id: str
 
@@ -72,17 +74,26 @@ async def whitespace_node(state: AgentState):
     mission_store["whitespace_results"] = results
     return {"whitespace_results": results, "status": "whitespace_completed"}
 
+async def pricing_node(state: AgentState):
+    run_id = state.get("run_id")
+    # For a full mission, we'd pass in scope from earlier steps. For now, default.
+    results = await run_pricing_pipeline({}, run_id=run_id)
+    mission_store["pricing_results"] = results
+    return {"pricing_results": results, "status": "pricing_completed"}
+
 
 # Define the State Machine Graph
 workflow = StateGraph(AgentState)
 workflow.add_node("targeting", targeting_node)
 workflow.add_node("planning", planning_node)
 workflow.add_node("whitespace", whitespace_node)
+workflow.add_node("pricing", pricing_node)
 
 workflow.set_entry_point("targeting")
 workflow.add_edge("targeting", "planning")
 workflow.add_edge("planning", "whitespace")
-workflow.add_edge("whitespace", END)
+workflow.add_edge("whitespace", "pricing")
+workflow.add_edge("pricing", END)
 
 # Compile the Mesh
 mesh_app = workflow.compile()
@@ -92,6 +103,7 @@ mission_store = {
     "targeting_results": {},
     "planning_results": {},
     "whitespace_results": {},
+    "pricing_results": {},
     "run_id": None,
 }
 
@@ -208,6 +220,7 @@ async def reset_mission():
     mission_store["targeting_results"] = {}
     mission_store["planning_results"] = {}
     mission_store["whitespace_results"] = {}
+    mission_store["pricing_results"] = {}
     mission_store["run_id"] = None
     tracker.emit(
         "ag-orch",
@@ -226,6 +239,7 @@ async def run_poc1():
     mission_store["targeting_results"] = {}
     mission_store["planning_results"] = {}
     mission_store["whitespace_results"] = {}
+    mission_store["pricing_results"] = {}
     results = await run_targeting_pipeline(trace_id=run_id)
     mission_store["targeting_results"] = results
     tracker.emit(
@@ -310,6 +324,33 @@ async def analyze_whitespace(body: AnalyzeWhitespaceRequest = AnalyzeWhitespaceR
         product_ids=body.product_ids,
         console=False,
     )
+
+@app.post("/run/pricing")
+async def run_pricing(body: dict):
+    """Run POC4 pricing pipeline with scoped inputs."""
+    run_id = mission_store.get("run_id") or str(uuid.uuid4())
+    mission_store["run_id"] = run_id
+    
+    try:
+        results = await run_pricing_pipeline(body.get("scope", {}), run_id=run_id)
+    except Exception as e:
+        detail = error_detail_for_http(e)
+        tracker.emit(
+            "ag-orch",
+            "FAILED",
+            message=f"Pricing mission failed ({detail['error_code']}): {detail['user_message']}",
+            trace_id=run_id,
+        )
+        raise HTTPException(status_code=502, detail=detail) from e
+        
+    mission_store["pricing_results"] = results
+    tracker.emit(
+        "ag-orch",
+        "END",
+        "Pricing mission complete.",
+        trace_id=run_id,
+    )
+    return results
 
 
 # Static assets only (GET/HEAD). API POST routes stay on the main app above.

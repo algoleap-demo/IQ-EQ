@@ -6,3 +6,18 @@ __pycache__/
 .pytest_cache/
 .venv/
 venv/
+
+127.0.0.1_8010_.png
+New Demo Docs/
+scratch/
+poc*.json
+inject*.cs
+*.ps1
+spec*.txt
+*.cs
+run_dump.py
+build_mock_html.py
+app/modules/pricing/
+app/scripts/train_win_propensity.py
+extract_targeting_json.py
+inject3.py
