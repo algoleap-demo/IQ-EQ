@@ -6,6 +6,7 @@ __pycache__/
 .pytest_cache/
 .venv/
 venv/
+Demo Video/*
 
 127.0.0.1_8010_.png
 New Demo Docs/

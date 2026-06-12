@@ -46,8 +46,25 @@ Create `.env` at the **repo root** (same level as `app/`).
 
 ## 3. Run locally
 
+To execute the frontend and backend perfectly, simply double-click or run the included batch file from your terminal:
+
+```cmd
+start_app.bat
+```
+
+This script will automatically:
+1. Create a virtual environment (`.venv`) if one does not exist.
+2. Activate the virtual environment.
+3. Install the required dependencies from `requirements.txt`.
+4. Open your default web browser to the application dashboard.
+5. Start the FastAPI backend and frontend server using Uvicorn.
+
+Alternatively, you can run the commands manually:
+
 ```bash
 cd <repo-root>
+python -m venv .venv
+.venv\Scripts\activate.bat
 pip install -r requirements.txt
 python -m uvicorn app.main:app --host 127.0.0.1 --port 8010 --reload
 ```
